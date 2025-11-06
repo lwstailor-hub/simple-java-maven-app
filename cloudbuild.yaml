@@ -1,60 +1,26 @@
 substitutions:
-  _SA_EMAIL: "tf-runner@gcp-mod1-lab-gobierno.iam.gserviceaccount.com"
+  _REGION: "us-central1"
+  _REPO_AR: "apps"
+  _SERVICE: "hello-cr"
 
 steps:
-  # (Opcional) Configura el proyecto para comandos gcloud de diagnóstico
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build','-t','${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_AR}/${_SERVICE}:$SHORT_SHA','.']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push','${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_AR}/${_SERVICE}:$SHORT_SHA']
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'Config project'
-    entrypoint: bash
+    entrypoint: gcloud
     args:
-      - -c
-      - |
-        gcloud config set project gcp-mod1-lab-gobierno
-        gcloud --version
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_AR}/${_SERVICE}:$SHORT_SHA
+      - --region=${_REGION}
+      - --allow-unauthenticated
+      - --service-account=cicd-deployer@$PROJECT_ID.iam.gserviceaccount.com
 
-  # Diagnóstico: verifica acceso al bucket de estado con la MISMA identidad que usará Terraform
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'Diag GCS access (impersonating tf-runner)'
-    entrypoint: bash
-    env:
-      - GOOGLE_IMPERSONATE_SERVICE_ACCOUNT=${_SA_EMAIL}
-    args:
-      - -c
-      - |
-        gsutil ls -L gs://tf-state-gvm || { echo "ERROR: tf-runner no puede acceder al bucket tf-state-gvm"; exit 1; }
-
-  # Terraform Init
-  - name: 'hashicorp/terraform:1.8'
-    id: 'Terraform Init'
-    env:
-      - GOOGLE_IMPERSONATE_SERVICE_ACCOUNT=${_SA_EMAIL}
-      - TF_VAR_project_id=gcp-mod1-lab-gobierno
-      - TF_VAR_region=us-central1
-      - TF_VAR_zone=us-central1-a
-    entrypoint: sh
-    args: [ "-c", "terraform init -upgrade" ]
-
-  # Terraform Plan
-  - name: 'hashicorp/terraform:1.8'
-    id: 'Terraform Plan'
-    env:
-      - GOOGLE_IMPERSONATE_SERVICE_ACCOUNT=${_SA_EMAIL}
-      - TF_VAR_project_id=gcp-mod1-lab-gobierno
-      - TF_VAR_region=us-central1
-      - TF_VAR_zone=us-central1-a
-    entrypoint: sh
-    args: [ "-c", "terraform plan -out=tfplan" ]
-
-  # Terraform Apply
-  - name: 'hashicorp/terraform:1.8'
-    id: 'Terraform Apply'
-    env:
-      - GOOGLE_IMPERSONATE_SERVICE_ACCOUNT=${_SA_EMAIL}
-      - TF_VAR_project_id=gcp-mod1-lab-gobierno
-      - TF_VAR_region=us-central1
-      - TF_VAR_zone=us-central1-a
-    entrypoint: sh
-    args: [ "-c", "terraform apply -auto-approve tfplan" ]
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_AR}/${_SERVICE}:$SHORT_SHA'
 
 options:
   logging: CLOUD_LOGGING_ONLY
