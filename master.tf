@@ -21,7 +21,7 @@ terraform {
 variable "project_id" {
   type        = string
   description = "ID del proyecto GCP"
-  default     = "gcp-mod1-lab-gobierno"    # <-- cambia si es necesario
+  default     = "gcp-mod1-lab-gobierno-475720"    # <-- cambia si es necesario
 }
 
 variable "region" {
